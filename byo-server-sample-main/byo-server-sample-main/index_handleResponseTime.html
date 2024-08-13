@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<title>I am Sophie</title>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<link rel="icon" href="https://cf-assets.digitalhumans.com/sample-site/favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="custom_css.css">
+<script src="getLocales.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+    window.uneeqInteractionsOptions = {
+      // (Other options remain the same)
+    };
+ 
+    let currentSessionId = ''; // Store session ID here
+    let isResponseDelayed = false; // Track delayed response
+ 
+    window.addEventListener('UneeqMessage', (event) => {
+      const loaderContainer = document.getElementById('loaderContainer');
+      const pleaseWaitMessage = document.getElementById('pleaseWaitMessage');
+      const msg = event.detail;
+      console.log('UneeQ Message: ', msg);
+ 
+      switch (msg.uneeqMessageType) {
+        case 'AvatarQuestionText':
+          console.log('User input received, adding spinner...');
+          loaderContainer.style.display = 'block';
+          pleaseWaitMessage.style.display = 'none';
+          isResponseDelayed = true;
+ 
+          // Set a timeout for delayed response handling
+          setTimeout(() => {
+            if (isResponseDelayed) {
+              pleaseWaitMessage.style.display = 'block';
+            }
+          }, 7000); // Show "Please wait..." message after 5 seconds
+ 
+          sendToKoreAI(msg.question);
+          break;
+ 
+        case 'StartedSpeaking':
+          console.log('Digital human started speaking, removing spinner...');
+          loaderContainer.style.display = 'none';
+          pleaseWaitMessage.style.display = 'none';
+          isResponseDelayed = false;
+          break;
+ 
+        default:
+          break;
+      }
+    });
+ 
+    async function sendToKoreAI(userInput) {
+      const KORE_AI_CONFIG = {
+        botId: 'st-719758b3-0c2e-5e55-9230-ebf7fbb2f4b3',
+        webhookUrl: 'https://chatterbox43.pfizer.com:443/chatbot/v2/webhook/st-719758b3-0c2e-5e55-9230-ebf7fbb2f4b3',
+        jwtToken: 'YOUR_JWT_TOKEN',
+        sessionId: currentSessionId
+      };
+ 
+      try {
+        const response = await axios.post(KORE_AI_CONFIG.webhookUrl, {
+          session: { new: !currentSessionId }, // Check if session is new
+          sessionId: KORE_AI_CONFIG.sessionId,
+          message: { type: 'text', val: userInput },
+          from: { id: 'Khush_test_IndexUneeq' },
+          to: { id: KORE_AI_CONFIG.botId }
+        }, {
+          headers: {
+            'Authorization': `Bearer ${KORE_AI_CONFIG.jwtToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+ 
+        isResponseDelayed = false; // Mark response as received
+        pleaseWaitMessage.style.display = 'none'; // Hide the "Please wait..." message
+ 
+        // Extracting the response text from Kore.AI
+        const botResponse = response.data;
+        console.log('Kore.AI complete response:', botResponse);
+ 
+        if (botResponse.conversationPayload && botResponse.conversationPayload.sessionId) {
+          currentSessionId = botResponse.conversationPayload.sessionId;
+        }
+ 
+        const responseText = botResponse.data[0].val || 'Sorry, I did not understand that.';
+        console.log('Kore.AI response:', responseText);
+ 
+        // Pass the response text to Uneeq for speaking
+        speakToUneeq(responseText);
+      } catch (error) {
+        console.error('Error communicating with Kore.AI:', error);
+        isResponseDelayed = false; // Mark response as received
+      }
+    }
+ 
+    function speakToUneeq(responseText) {
+      try {
+        const event = new CustomEvent('UneeqCommand', {
+          detail: {
+            uneeqCommandType: 'AvatarSpeakText',
+            text: responseText
+          }
+        });
+        console.log('Dispatching UneeqCommand event with text:', responseText);
+        window.dispatchEvent(event);
+      } catch (error) {
+        console.error('Error dispatching UneeqCommand event:', error);
+      }
+    }
+</script>
+<script src="https://hosted.us.uneeq.io/interactions/v1/deploy"></script>
+</head>
+<body>
+<div id="loaderContainer" class="bottom-align" style="display:none">
+<div class="spinner">
+<div class="dot1"></div>
+<div class="dot2"></div>
+</div>
+</div>
+<div id="pleaseWaitMessage" style="display:none; text-align:center; color:white;">
+    Please wait while we process your request...
+</div>
+<!-- Rest of your HTML remains the same -->
+</body>
+</html>
+

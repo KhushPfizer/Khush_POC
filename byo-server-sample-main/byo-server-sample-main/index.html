@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<title>I am Sophie</title>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<link rel="icon" href="https://cf-assets.digitalhumans.com/sample-site/favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="custom_css.css">
+<script src="getLocales.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+    window.uneeqInteractionsOptions = {
+      "personaShareId": "250e6126-fd39-48a1-9289-816a5dadc0df", // Pfizer Test Persona - Control
+      "enableTransparentBackground": false,
+      "backgroundImageUrl": "https://res.cloudinary.com/ddownn0ib/image/upload/v1682656274/Uneeq-Marketing/sophie_bg_v5_v1zsp8.jpg",
+      "customData": {
+        "locale": "en-US",
+        "containerName": "backend-showcase"
+      },
+      "cameraPosition": {
+        "camera_position_vertical": -0.3,
+        "camera_position_horizontal": 0.0,
+        "camera_position_distance": 0.8
+      },
+      "speechToTextLocales": selectedLocales,
+      "showUserInputInterface": true,
+      "displayCallToAction": true,
+      "renderContent": true,
+      "showClosedCaptions": true,
+      "playWelcome": true,
+      "mobileViewWidthBreakpoint": 900,
+      "enableMicrophone": true,
+      "voiceInputMode": "SPEECH_RECOGNITION",
+      "languageStrings": {
+        "default": {
+          "callToActionText": "Hi! Click here to start a conversation.",
+          "textInputPlaceholder": "Type here..."
+        }
+      },
+      "layoutMode": "fullScreen"
+    };
+ 
+    let currentSessionId = ''; // Store session ID here
+    let isResponseDelayed = false; // Track delayed response
+ 
+    window.addEventListener('UneeqMessage', (event) => {
+      const loaderContainer = document.getElementById('loaderContainer');
+      const pleaseWaitMessage = document.getElementById('pleaseWaitMessage');
+      const msg = event.detail;
+      console.log('UneeQ Message: ', msg);
+ 
+      switch (msg.uneeqMessageType) {
+        case 'AvatarQuestionText':
+          console.log('User input received, adding spinner...');
+          loaderContainer.style.display = 'block';
+          pleaseWaitMessage.style.display = 'none';
+          isResponseDelayed = true;
+ 
+          // Set a timeout for delayed response handling
+          setTimeout(() => {
+            if (isResponseDelayed) {
+              pleaseWaitMessage.style.display = 'block';
+            }
+          }, 7000); // Show "Please wait..." message after 7 seconds
+ 
+          sendToKoreAI(msg.question);
+          break;
+ 
+        case 'StartedSpeaking':
+          console.log('Digital human started speaking, removing spinner...');
+          loaderContainer.style.display = 'none';
+          pleaseWaitMessage.style.display = 'none';
+          isResponseDelayed = false;
+          break;
+ 
+        default:
+          break;
+      }
+    });
+ 
+    async function sendToKoreAI(userInput) {
+      const KORE_AI_CONFIG = {
+        botId: 'st-719758b3-0c2e-5e55-9230-ebf7fbb2f4b3',
+        webhookUrl: 'https://chatterbox43.pfizer.com:443/chatbot/v2/webhook/st-719758b3-0c2e-5e55-9230-ebf7fbb2f4b3',
+        jwtToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImlhdCI6MTcyMzQ2OTU5MywiZXhwIjoxNzI0MDc0MzkzfQ.eyJpYXQiOjE3MjM0Njk1OTMuMDY1NDA5MiwiZXhwIjoxNzI0MDc0MzkzLjA2NTQwOTIsImF1ZCI6IlBmaXplciIsImlzcyI6ImNzLTI5YWVmODFiLTdhZjctNTQxMi1iOTY2LWQ3ZmNhOGQxYzkzYiIsImFwcElkIjoiY3MtMjlhZWY4MWItN2FmNy01NDEyLWI5NjYtZDdmY2E4ZDFjOTNiIiwic3ViIjoiNmM0MzZjOTAtNThhZi0xMWVmLWI0MGEtYTY4NDc1NWZiMzAxIiwiaXNBbm9ueW1vdXMiOnRydWV9.f9lvqgkp4IC8AanpHO7Lxx6FLjw0qvs74iqZgQ15Nu4',
+        sessionId: currentSessionId
+      };
+ 
+      try {
+        const response = await axios.post(KORE_AI_CONFIG.webhookUrl, {
+          session: { new: false },
+          sessionId: KORE_AI_CONFIG.sessionId,
+          message: { type: 'text', val: userInput || "Welcome Task"},
+          from: { id: 'Khush_test_IndexUneeq' },
+          to: { id: KORE_AI_CONFIG.botId }
+        }, {
+          headers: {
+            'Authorization': `Bearer ${KORE_AI_CONFIG.jwtToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+ 
+        isResponseDelayed = false; // Mark response as received
+        pleaseWaitMessage.style.display = 'none'; // Hide the "Please wait..." message
+ 
+        // Extracting the response text from Kore.AI
+        const botResponse = response.data;
+        console.log('Kore.AI complete response:', botResponse);
+ 
+        // Safeguard: Check if the response structure is as expected
+        if (botResponse && botResponse.data && Array.isArray(botResponse.data) && botResponse.data.length > 0) {
+          const responseText = botResponse.data[0].val || 'Sorry, I did not understand that.';
+          console.log('Kore.AI response:', responseText);
+          speakToUneeq(responseText);
+        } else {
+          // Fallback: Handle unexpected response structure or empty data
+          console.warn('Kore.AI response data is not in expected format or is empty:', botResponse);
+          speakToUneeq('Sorry, something went wrong. Please try again.');
+        }
+ 
+        if (botResponse.conversationPayload && botResponse.conversationPayload.sessionId) {
+          currentSessionId = botResponse.conversationPayload.sessionId;
+        }
+      } catch (error) {
+        console.error('Error communicating with Kore.AI:', error);
+        isResponseDelayed = false; // Mark response as received
+ 
+        // Handle different error types
+        if (error.response) {
+          // Server responded with a status code outside the range of 2xx
+          console.error('Error response from server:', error.response);
+          speakToUneeq('Sorry, I am having trouble connecting to the server. Please try again later.');
+        } else if (error.request) {
+          // Request was made, but no response was received
+          console.error('No response received:', error.request);
+          speakToUneeq('Sorry, the server is not responding. Please try again later.');
+        } else {
+          // Something else happened while setting up the request
+          console.error('Request setup error:', error.message);
+          speakToUneeq('Sorry, an unexpected error occurred. Please try again later.');
+        }
+      }
+    }
+ 
+    function speakToUneeq(responseText) {
+      try {
+        const event = new CustomEvent('UneeqCommand', {
+          detail: {
+            uneeqCommandType: 'AvatarSpeakText',
+            text: responseText
+          }
+        });
+        console.log('Dispatching UneeqCommand event with text:', responseText);
+        window.dispatchEvent(event);
+      } catch (error) {
+        console.error('Error dispatching UneeqCommand event:', error);
+      }
+    }
+</script>
+<script src="https://hosted.us.uneeq.io/interactions/v1/deploy"></script>
+</head>
+<body>
+<div id="loaderContainer" class="bottom-align" style="display:none">
+<div class="spinner">
+<div class="dot1"></div>
+<div class="dot2"></div>
+</div>
+</div>
+<div id="pleaseWaitMessage" style="display:none; text-align:center; color:white;">
+    Please wait while we process your request...
+</div>
+<!-- Rest of your HTML remains the same -->
+</body>
+</html>

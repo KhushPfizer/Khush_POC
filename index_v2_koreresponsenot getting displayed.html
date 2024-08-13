@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+ 
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<title>I am Sophie</title>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<link rel="icon" href="https://cf-assets.digitalhumans.com/sample-site/favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="custom_css.css">
+<script src="getLocales.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script> <!-- Adding Axios for HTTP requests -->
+<script>
+        window.uneeqInteractionsOptions =
+        {
+            "personaShareId": "250e6126-fd39-48a1-9289-816a5dadc0df", // Pfizer Test Persona - Control
+            "enableTransparentBackground": true,
+            "backgroundImageUrl": "https://res.cloudinary.com/ddownn0ib/image/upload/v1682656274/Uneeq-Marketing/sophie_bg_v5_v1zsp8.jpg",
+            "customData": {
+                "locale": "en-US",
+                "containerName": "backend-showcase"
+            },
+            "cameraPosition": {
+                "camera_position_vertical": -0.3,
+                "camera_position_horizontal": 0.0,
+                "camera_position_distance": 0.8
+            },
+            "speechToTextLocales": selectedLocales,
+            "showUserInputInterface": true,
+            "displayCallToAction": true,
+            "renderContent": true,
+            "showClosedCaptions": true,
+            "playWelcome": false,
+            "mobileViewWidthBreakpoint": 900,
+            "enableMicrophone": true,
+            "voiceInputMode": "SPEECH_RECOGNITION",
+            "languageStrings": {
+                "default": {
+                    "callToActionText": "Hi! Click here to start a conversation.",
+                    "textInputPlaceholder": "Type here..."
+                }
+            },
+            "layoutMode": "fullScreen"
+        }
+ 
+        window.addEventListener('UneeqMessage', (event) => {
+            const loaderContainer = document.getElementById('loaderContainer');
+            const msg = event.detail;
+            console.log('UneeQ Message: ', msg);
+            switch (msg.uneeqMessageType) {
+                case 'AvatarQuestionText':
+                    console.log('User input received, adding spinner...')
+                    loaderContainer.style.display = 'block';
+                    sendToKoreAI(msg.question); // Send the user input to Kore.AI
+                    break;
+                case 'StartedSpeaking':
+                    console.log('Digital human started speaking, removing spinner...')
+                    loaderContainer.style.display = 'none';
+                    break;
+                default:
+                    break;
+            }
+        });
+ 
+        async function sendToKoreAI(userInput) {
+            const KORE_AI_CONFIG = {
+                webhookUrl: 'https://chatterbox43.pfizer.com:443/chatbot/v2/webhook/st-719758b3-0c2e-5e55-9230-ebf7fbb2f4b3',
+                jwtToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImlhdCI6MTcyMDc5NjgxMywiZXhwIjoxNzIxNDAxNjEzfQ.eyJpYXQiOjE3MjA3OTY4MTMuNzYyOTY3LCJleHAiOjE3MjE0MDE2MTMuNzYyOTY3LCJhdWQiOiJQZml6ZXIiLCJpc3MiOiJjcy0yOWFlZjgxYi03YWY3LTU0MTItYjk2Ni1kN2ZjYThkMWM5M2IiLCJhcHBJZCI6ImNzLTI5YWVmODFiLTdhZjctNTQxMi1iOTY2LWQ3ZmNhOGQxYzkzYiIsInN1YiI6IjVmYTc4ZWNlLTQwNjAtMTFlZi1iZGVlLTEyNGUwNzM3OGNmYyIsImlzQW5vbnltb3VzIjp0cnVlfQ.TbAZikpN3FmxKCEGbHuiid97xa0ARTwiE5kq6Is2HUY'
+            };
+ 
+            try {
+                const response = await axios.post(KORE_AI_CONFIG.webhookUrl, {
+                    session: { new: true },
+                    message: { type: 'text', val: userInput },
+                    from: { id: 'user' },
+                    to: { id: KORE_AI_CONFIG.botId }
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${KORE_AI_CONFIG.jwtToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+ 
+                const botResponse = response.data;
+                console.log('Kore.AI response:', botResponse);
+ 
+                // Pass the bot response to Uneeq for Sophie to speak
+                speakToUneeq(botResponse.answer);
+ 
+            } catch (error) {
+                console.error('Error communicating with Kore.AI:', error);
+            }
+        }
+ 
+        function speakToUneeq(responseText) {
+            const event = new CustomEvent('UneeqCommand', {
+                detail: {
+                    uneeqCommandType: 'AvatarSpeakText',
+                    text: responseText
+                }
+            });
+            window.dispatchEvent(event);
+        }
+</script>
+<script src="https://hosted.us.uneeq.io/interactions/v1/deploy"></script>
+</head>
+ 
+<body>
+<div id="loaderContainer" class="bottom-align" style="display:none">
+<div class="spinner">
+<div class="dot1"></div>
+<div class="dot2"></div>
+</div>
+</div>
+ 
+    <div id="video-background">
+<video autoplay loop muted>
+<source src="https://cf-assets.digitalhumans.com/sophie_idle_1080SD.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+</video>
+</div>
+ 
+    <div class="flex-container">
+<div class="flex-item align-bottom margin-bottom margin-left">
+<p class="text-light half-width" class="langExplanation">Sophie will be able to listen to you speak in
+                languages you select (limit 4). The languages your browser supports have been automatically
+                detected.</p>
+<select id="languageDropdown" class="form-control bg-dark text-white" multiple></select>
+</div>
+<div class="flex-item"></div>
+<div class="flex-item"></div>
+</div>
+</body>
+<!-- Include Bootstrap JS and jQuery via CDN (required for Bootstrap) -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.1/dist/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+ 
+<script src="setLocales.js"></script>
+ 
+</html>

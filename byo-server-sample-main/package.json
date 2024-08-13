@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-fetch": "^3.3.2",
+    "uneeq-js": "^2.58.0",
+    "type":"module"
+  }
+}
